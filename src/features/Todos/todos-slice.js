@@ -3,11 +3,27 @@ import {resetToDefault} from '../Reset/reset-action';
 
 const URL_TODOS = 'http://localhost:3001/todos'
 
-export const loadTodos = createAsyncThunk('@@todos/load-all',
-    async () => {
-        const res = await fetch('http://localhost:3002/todos');
-        const data = await res.json();
-        return data;
+export const loadTodos = createAsyncThunk(
+    '@@todos/load-all',
+    async (_,{
+        rejectWithValue
+    }) => {
+        try {
+            const res = await fetch('http://localhost:3002/todos');
+            const data = await res.json();
+            return data;
+        }
+        catch (err) {
+            return rejectWithValue("Failed to fetch all todos.")
+        }
+    },{
+        condition:(_,{getState,extra})=>{
+            const {loading}=getState().todos;
+
+            if(loading==='loading'){
+                return false;
+            }
+        }
     }
 )
 export const createTodo = createAsyncThunk(
@@ -60,6 +76,18 @@ const todoSlice = createSlice({
             })
             .addCase(createTodo.fulfilled, (state, action) => {
                 state.entities.push(action.payload)
+            })
+            .addMatcher((action)=>action.type.endsWith('/pending'),(state)=>{
+                state.loading='loading';
+                state.error=null;
+            })
+            .addMatcher((action)=>action.type.endsWith('/rejected'),(state, action)=>{
+
+                state.loading='idle';
+                state.error=action.payload || action.error.message
+            })
+            .addMatcher((action)=>action.type.endsWith('/fulfilled'),(state,action)=>{
+                state.loading='idle';
             })
     }
 });
